@@ -1,56 +1,73 @@
 import React from 'react'
 import { useDrop } from 'react-dnd'
-import { LetterTile } from './LetterTile'
 import './Board.css'
 
 interface BoardProps {
   board: string[][]
+  lockedCells: boolean[][]
   onLetterDrop: (row: number, col: number, letter: string) => void
   onLetterRemove: (row: number, col: number, letter: string) => void
-  lockedCells: boolean[][]
 }
 
-export const Board: React.FC<BoardProps> = ({ board, onLetterDrop, onLetterRemove, lockedCells }) => {
-  const renderCell = (row: number, col: number, letter: string) => {
-    const [{ isOver }, drop] = useDrop(() => ({
-      accept: 'LETTER',
+export const Board: React.FC<BoardProps> = ({
+  board,
+  lockedCells,
+  onLetterDrop,
+  onLetterRemove,
+}) => {
+  const renderCell = (row: number, col: number) => {
+    const letter = board[row][col]
+    const isLocked = lockedCells[row][col]
+
+    const [{ isOver, canDrop }, drop] = useDrop({
+      accept: 'letter',
+      canDrop: () => !isLocked,
       drop: (item: { letter: string }) => {
-        console.log('Dropping letter:', item.letter, 'at position:', row, col)
         onLetterDrop(row, col, item.letter)
       },
-      canDrop: () => !lockedCells[row][col],
       collect: (monitor) => ({
-        isOver: !!monitor.isOver()
-      })
-    }))
+        isOver: monitor.isOver(),
+        canDrop: monitor.canDrop(),
+      }),
+    })
 
     const handleClick = () => {
-      if (letter && !lockedCells[row][col]) {
+      if (letter && !isLocked) {
         onLetterRemove(row, col, letter)
       }
     }
 
+    const cellClassName = [
+      'board-cell',
+      isLocked ? 'locked' : '',
+      !isLocked && (isOver || letter) ? 'droppable' : '',
+      isOver && canDrop ? 'can-drop' : '',
+      isOver && !canDrop ? 'cant-drop' : '',
+    ]
+      .filter(Boolean)
+      .join(' ')
+
     return (
       <div
-        ref={drop}
-        className={`board-cell ${isOver ? 'cell-hover' : ''} ${lockedCells[row][col] ? 'locked' : ''} ${letter ? 'has-letter' : ''}`}
         key={`${row}-${col}`}
+        ref={drop}
+        className={cellClassName}
         onClick={handleClick}
       >
-        {letter && <LetterTile letter={letter} isLocked={lockedCells[row][col]} />}
+        <div className="board-cell-content">
+          {letter}
+        </div>
       </div>
     )
   }
 
   return (
     <div className="board">
-      {board.map((row, rowIndex) => (
-        <div className="board-row" key={rowIndex}>
-          {row.map((letter, colIndex) =>
-            renderCell(rowIndex, colIndex, letter)
-          )}
-        </div>
-      ))}
+      {board.map((row, rowIndex) =>
+        row.map((_, colIndex) => renderCell(rowIndex, colIndex))
+      )}
     </div>
   )
-} 
+}
+
+export default Board 

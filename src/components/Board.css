@@ -1,11 +1,14 @@
 .board {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(15, minmax(30px, 1fr));
   gap: 2px;
-  background-color: #f0f0f0;
-  padding: 10px;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background-color: #2c3e50;
+  padding: 8px;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
 }
 
 .board-row {
@@ -14,46 +17,88 @@
 }
 
 .board-cell {
-  width: 40px;
-  height: 40px;
-  background-color: #ffffff;
-  border: 1px solid #ddd;
+  background-color: white;
+  border: 1px solid #e0e0e0;
+  padding-bottom: 100%; /* This creates a square aspect ratio */
+  position: relative;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.board-cell-content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  position: relative;
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #2c3e50;
 }
 
-.board-cell.has-letter {
-  background-color: #e3f2fd;
-  border-color: #90caf9;
+.board-cell:hover {
+  background-color: #f8f9fa;
 }
 
 .board-cell.locked {
   background-color: #e8f5e9;
-  border-color: #81c784;
+  cursor: not-allowed;
+  color: #1b5e20;
+  border-color: #a5d6a7;
+}
+
+.board-cell.locked .board-cell-content {
+  color: #1b5e20;
+}
+
+.board-cell.locked::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(45deg, transparent 48%, #81c784 49%, #81c784 51%, transparent 52%);
+  opacity: 0.2;
+  pointer-events: none;
+}
+
+.board-cell.droppable {
+  background-color: #f5f5f5;
+}
+
+.board-cell.droppable.can-drop {
+  background-color: #e3f2fd;
+  transform: scale(1.02);
+  box-shadow: 0 0 10px rgba(33, 150, 243, 0.3);
+  z-index: 1;
+}
+
+.board-cell.droppable.cant-drop {
+  background-color: #ffebee;
   cursor: not-allowed;
 }
 
-.board-cell.locked .letter-tile {
-  background-color: #81c784;
-  color: white;
-  font-weight: bold;
+@media (max-width: 768px) {
+  .board {
+    gap: 1px;
+    padding: 4px;
+  }
+
+  .board-cell-content {
+    font-size: 0.9rem;
+  }
 }
 
-.board-cell:not(.locked):hover {
-  background-color: #e3f2fd;
-  transform: scale(1.05);
-}
+@media (max-width: 480px) {
+  .board {
+    padding: 2px;
+  }
 
-.board-cell.locked:hover {
-  background-color: #e8f5e9;
-  transform: none;
-}
-
-.cell-hover {
-  background-color: #bbdefb;
-  border-color: #64b5f6;
+  .board-cell-content {
+    font-size: 0.8rem;
+  }
 } 

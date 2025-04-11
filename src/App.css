@@ -4,65 +4,208 @@
   align-items: center;
   padding: 20px;
   min-height: 100vh;
-  background-color: #f0f0f0;
-  max-width: 800px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e4e8eb 100%);
+  max-width: 1200px;
   margin: 0 auto;
   text-align: center;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.game-header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  margin-bottom: 30px;
+}
+
+.game-title {
+  font-size: 2.5rem;
+  color: #2c3e50;
+  margin: 0;
+  background: linear-gradient(45deg, #2c3e50, #3498db);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .game-container {
+  display: grid;
+  grid-template-columns: minmax(auto, 800px) 300px;
+  gap: 30px;
+  align-items: start;
+  margin: 20px auto;
+  width: 100%;
+  max-width: 1200px;
+  padding: 0 20px;
+}
+
+.game-board-container {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  width: 100%;
+}
+
+.game-sidebar {
   display: flex;
   flex-direction: column;
   gap: 20px;
-  align-items: center;
-  margin-top: 20px;
 }
 
-h1 {
+.score-container {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.total-score {
+  font-size: 2em;
+  font-weight: bold;
   color: #2c3e50;
-  margin-bottom: 20px;
+  margin-bottom: 10px;
+}
+
+.score-label {
+  font-size: 1.2em;
+  color: #7f8c8d;
+  margin-bottom: 5px;
+}
+
+.last-word-score {
+  font-size: 1.4em;
+  color: #27ae60;
+  margin-top: 10px;
+  padding: 10px;
+  background: #f1f8f1;
+  border-radius: 8px;
+  animation: fadeIn 0.5s ease-in;
 }
 
 .current-word {
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   color: #2c3e50;
-  background-color: #e3f2fd;
+  background-color: white;
   padding: 15px 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  min-width: 200px;
-  max-width: 80%;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  width: 100%;
   text-align: center;
-  margin: 10px auto;
-  white-space: pre-wrap;
-  word-wrap: break-word;
+  margin: 10px 0;
   line-height: 1.4;
 }
 
+.current-word-label {
+  font-weight: bold;
+  color: #7f8c8d;
+  margin-bottom: 5px;
+  display: block;
+}
+
 .submit-button {
-  padding: 10px 20px;
-  font-size: 1rem;
-  background-color: #4caf50;
+  padding: 12px 24px;
+  font-size: 1.1rem;
+  background: linear-gradient(45deg, #2ecc71, #27ae60);
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.3s ease;
+  width: 100%;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
 .submit-button:hover {
-  background-color: #388e3c;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(46, 204, 113, 0.3);
+}
+
+.submit-button:active {
+  transform: translateY(0);
 }
 
 .submit-button:disabled {
-  background-color: #cccccc;
+  background: #bdc3c7;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .message {
-  margin-top: 10px;
-  padding: 10px;
-  border-radius: 4px;
-  background-color: #f8f8f8;
+  margin-top: 15px;
+  padding: 15px;
+  border-radius: 8px;
+  background-color: white;
   color: #333;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  animation: slideIn 0.3s ease-out;
+}
+
+.message.error {
+  background-color: #fee;
+  color: #e74c3c;
+  border-left: 4px solid #e74c3c;
+}
+
+.message.success {
+  background-color: #efe;
+  color: #27ae60;
+  border-left: 4px solid #27ae60;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (max-width: 1024px) {
+  .game-container {
+    grid-template-columns: 1fr;
+    max-width: 800px;
+  }
+  
+  .game-board-container {
+    padding: 10px;
+  }
+  
+  .game-sidebar {
+    order: -1;
+  }
+}
+
+@media (max-width: 768px) {
+  .game-header {
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .game-title {
+    font-size: 2rem;
+  }
 } 
