@@ -1,0 +1,59 @@
+.board {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background-color: #f0f0f0;
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.board-row {
+  display: flex;
+  gap: 2px;
+}
+
+.board-cell {
+  width: 40px;
+  height: 40px;
+  background-color: #ffffff;
+  border: 1px solid #ddd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.board-cell.has-letter {
+  background-color: #e3f2fd;
+  border-color: #90caf9;
+}
+
+.board-cell.locked {
+  background-color: #e8f5e9;
+  border-color: #81c784;
+  cursor: not-allowed;
+}
+
+.board-cell.locked .letter-tile {
+  background-color: #81c784;
+  color: white;
+  font-weight: bold;
+}
+
+.board-cell:not(.locked):hover {
+  background-color: #e3f2fd;
+  transform: scale(1.05);
+}
+
+.board-cell.locked:hover {
+  background-color: #e8f5e9;
+  transform: none;
+}
+
+.cell-hover {
+  background-color: #bbdefb;
+  border-color: #64b5f6;
+} 
