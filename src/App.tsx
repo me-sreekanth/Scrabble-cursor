@@ -8,6 +8,7 @@ import { findWords, isValidWord, isValidPlacement } from './utils/wordValidator'
 import './App.css'
 import { calculateWordScore, calculateTotalScore } from './utils/scoring'
 import { ethers } from 'ethers'
+import { getContractAddress, getContractABI } from './utils/contractUtils'
 
 declare global {
   interface Window {
@@ -20,15 +21,14 @@ declare global {
   }
 }
 
-const BOARD_SIZE = 15
-
 const App: React.FC = () => {
+  const [boardSize, setBoardSize] = useState<number>(20) // Initialize with 20, will be updated from contract
   const [letters, setLetters] = useState<string[]>([])
   const [board, setBoard] = useState<string[][]>(
-    Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(''))
+    Array.from({ length: 20 }, () => Array(20).fill(''))
   )
   const [lockedCells, setLockedCells] = useState<boolean[][]>(
-    Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(false))
+    Array.from({ length: 20 }, () => Array(20).fill(false))
   )
   const [message, setMessage] = useState<{ text: string; type: 'error' | 'success' | 'info' }>({ text: '', type: 'info' })
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
@@ -38,8 +38,50 @@ const App: React.FC = () => {
   const [moveCount, setMoveCount] = useState<number>(0)
   const [isConnected, setIsConnected] = useState<boolean>(false)
   const [account, setAccount] = useState<string>('')
-  const [contractAddress, setContractAddress] = useState<string>('0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9') // Updated to new deployed contract address
+  const [contractAddress, setContractAddress] = useState<string>(getContractAddress())
   const [contract, setContract] = useState<ethers.Contract | null>(null)
+
+  // Add contract functions for board state
+  const getBoardState = async () => {
+    if (!contract || !account) return
+    try {
+      // Get board size from contract
+      const size = await contract.BOARD_SIZE()
+      setBoardSize(Number(size))
+      
+      const boardState = await contract.getUserBoard(account)
+      const newBoard = Array(20).fill(null).map(() => Array(20).fill(null))
+      const newLockedCells = Array(20).fill(null).map(() => Array(20).fill(false))
+      
+      for (let i = 0; i < 20; i++) {
+        for (let j = 0; j < 20; j++) {
+          const cell = boardState[i][j]
+          if (cell !== '0x00') {
+            newBoard[i][j] = cell
+            newLockedCells[i][j] = true
+          }
+        }
+      }
+      
+      setBoard(newBoard)
+      setLockedCells(newLockedCells)
+    } catch (error) {
+      console.error('Error loading board state:', error)
+    }
+  }
+
+  // Update board state in contract
+  const updateBoardState = async () => {
+    if (!contract || !account) return
+    try {
+      const bytesBoard = board.map(row => 
+        row.map(cell => cell || '0x00')
+      )
+      await contract.updateBoardState(bytesBoard)
+    } catch (error) {
+      console.error('Error updating board state:', error)
+    }
+  }
 
   // Handle wallet connection
   const connectWallet = async () => {
@@ -55,23 +97,12 @@ const App: React.FC = () => {
         localStorage.setItem('connectedAccount', address)
         setMessage({ text: 'Wallet connected successfully!', type: 'success' })
 
-        const contract = new ethers.Contract(contractAddress, [
-          // ERC1155 Events
-          "event TransferSingle(address indexed operator, address indexed from, address indexed to, uint256 id, uint256 value)",
-          "event TransferBatch(address indexed operator, address indexed from, address indexed to, uint256[] ids, uint256[] values)",
-          
-          // Contract Functions
-          "function getUserLetters(address) returns (uint256[])",
-          "function getUserTokens(address) view returns (uint256[])",
-          "function getTokenLetter(uint256) view returns (bytes1)",
-          "function submitWord(address,bytes[15][15],string,bytes32[])",
-          "function verifyWord(bytes32,bytes32[]) view returns (bool)"
-        ], signer)
+        const contract = new ethers.Contract(contractAddress, getContractABI(), signer)
         setContract(contract)
 
-        // Load user's existing letters after connection
+        // Load user's existing letters and board state after connection
         try {
-          setMessage({ text: 'Loading your letters...', type: 'info' })
+          setMessage({ text: 'Loading game state...', type: 'info' })
           
           // Get the user's existing token IDs
           const tokenIds = await contract.getUserTokens(address)
@@ -86,12 +117,16 @@ const App: React.FC = () => {
             )
             
             setLetters(letters)
-            setMessage({ text: 'Letters loaded successfully!', type: 'success' })
+            // Load board state from contract
+            await getBoardState()
+            setMessage({ text: 'Game state loaded successfully!', type: 'success' })
           } else {
             setMessage({ text: 'No letters found. Click "Claim Letters" to start playing!', type: 'info' })
+            // Initialize empty board
+            await getBoardState()
           }
         } catch (error) {
-          console.error('Error loading letters:', error)
+          console.error('Error loading game state:', error)
           setMessage({ text: 'No letters found. Click "Claim Letters" to start playing!', type: 'info' })
         }
       } catch (error) {
@@ -247,158 +282,66 @@ const App: React.FC = () => {
     }
   }
 
-  const handleLetterDrop = (row: number, col: number, letter: string) => {
-    if (isSubmitting || lockedCells[row][col]) {
-      setMessage({ text: 'This cell is locked!', type: 'error' })
-      return
+  // Update handleLetterDrop to sync with contract
+  const handleLetterDrop = async (row: number, col: number, letter: string) => {
+    if (lockedCells[row][col]) return;
+    
+    const newBoard = [...board];
+    newBoard[row][col] = letter;
+    setBoard(newBoard);
+    
+    await updateBoardState();
+  };
+
+  const handleLetterRemove = async (row: number, col: number) => {
+    if (lockedCells[row][col]) return;
+    
+    const newBoard = [...board];
+    newBoard[row][col] = '';
+    setBoard(newBoard);
+    
+    await updateBoardState();
+  };
+
+  const getWordFromBoard = (): string | null => {
+    // Find the first non-empty row or column
+    for (let i = 0; i < 20; i++) {
+      // Check row
+      const rowWord = board[i].filter(cell => cell !== '').join('');
+      if (rowWord.length > 1) return rowWord;
+      
+      // Check column
+      const colWord = board.map(row => row[i]).filter(cell => cell !== '').join('');
+      if (colWord.length > 1) return colWord;
     }
-    
-    console.log('Handling letter drop:', { row, col, letter })
+    return null;
+  };
 
-    if (!isValidPlacement(board, row, col, letter, lockedCells)) {
-      setMessage({ 
-        text: 'Invalid placement. Letters must form valid words with adjacent letters.', 
-        type: 'error' 
-      })
-      return
-    }
-    
-    setLetters(prevLetters => {
-      const letterIndex = prevLetters.indexOf(letter)
-      if (letterIndex === -1) {
-        console.log('Letter not found in rack:', letter)
-        return prevLetters
-      }
-      const newLetters = [...prevLetters.slice(0, letterIndex), ...prevLetters.slice(letterIndex + 1)]
-      console.log('Updated letters:', newLetters)
-      return newLetters
-    })
-
-    setBoard(prevBoard => {
-      const newBoard = prevBoard.map(r => [...r])
-      newBoard[row][col] = letter
-      console.log('Updated board at position:', { row, col, letter })
-      return newBoard
-    })
-    
-    setMoveCount(prev => prev + 1)
-    setMessage({ text: '', type: 'info' })
-  }
-
-  const handleLetterRemove = (row: number, col: number, letter: string) => {
-    if (isSubmitting || lockedCells[row][col]) return
-
-    console.log('Removing letter:', { row, col, letter })
-    
-    // Add the letter back to the rack
-    setLetters(prevLetters => [...prevLetters, letter])
-
-    // Clear the board cell
-    setBoard(prevBoard => {
-      const newBoard = prevBoard.map(r => [...r])
-      newBoard[row][col] = ''
-      return newBoard
-    })
-  }
-
+  // Update handleSubmitWord to use the correct board size
   const handleSubmitWord = async () => {
-    setIsSubmitting(true)
-    const words = findWords(board, lockedCells)
-    console.log('Found words:', words)
-    
-    if (words.length === 0) {
-      setMessage({ text: 'No valid words found on the board', type: 'error' })
-      setIsSubmitting(false)
-      return
-    }
-
-    const wordsToValidate = words.map(word => word.split(' (')[0])
+    if (!contract || !account) return;
     
     try {
-      const validationResults = await Promise.all(
-        wordsToValidate.map(async (word) => ({
-          word,
-          isValid: await isValidWord(word)
-        }))
-      )
-
-      const invalidWords = validationResults
-        .filter((result) => !result.isValid)
-        .map((result) => result.word)
-
-      if (invalidWords.length > 0) {
-        setMessage({ 
-          text: `Invalid words found: ${invalidWords.join(', ')}`, 
-          type: 'error' 
-        })
-        // Clear the invalid words from the board and return letters to rack
-        setBoard(prevBoard => {
-          const newBoard = prevBoard.map(r => [...r])
-          // Find all cells that are not locked and contain letters
-          const lettersToReturn: string[] = []
-          for (let row = 0; row < BOARD_SIZE; row++) {
-            for (let col = 0; col < BOARD_SIZE; col++) {
-              if (newBoard[row][col] && !lockedCells[row][col]) {
-                lettersToReturn.push(newBoard[row][col])
-                newBoard[row][col] = ''
-              }
-            }
-          }
-          // Return the letters to the rack
-          setLetters(prevLetters => [...prevLetters, ...lettersToReturn])
-          return newBoard
-        })
-      } else {
-        const wordScore = calculateTotalScore(wordsToValidate)
-        setLastWordScore(wordScore)
-        setScore(prevScore => prevScore + wordScore)
-        setMessage({ 
-          text: `Words submitted successfully! +${wordScore} points`, 
-          type: 'success' 
-        })
-        // Lock the cells that contain the valid words
-        setLockedCells(prevLocked => {
-          const newLocked = prevLocked.map(r => [...r])
-          // Only lock cells that are part of the newly formed words
-          words.forEach(wordWithLocation => {
-            const [, location] = wordWithLocation.split(' (')
-            const [type, range] = location.split(', ')
-            const [typeValue, number] = type.split(' ')
-            const [, rangeValues] = range.split(' ')
-            const [start, end] = rangeValues.split('-').map(n => parseInt(n) - 1)
-
-            if (typeValue === 'Row') {
-              const row = parseInt(number) - 1
-              for (let col = start; col <= end; col++) {
-                if (board[row][col] && !newLocked[row][col]) {
-                  newLocked[row][col] = true
-                }
-              }
-            } else { // Column
-              const col = parseInt(number) - 1
-              for (let row = start; row <= end; row++) {
-                if (board[row][col] && !newLocked[row][col]) {
-                  newLocked[row][col] = true
-                }
-              }
-            }
-          })
-          return newLocked
-        })
-        // Generate new letters after successful word submission
-        setLetters(prevLetters => [...prevLetters, ...generateLetters()])
-        // Clear the current word display
-        setCurrentWord('')
+      const bytesBoard = board.map(row => 
+        row.map(cell => cell || '0x00')
+      );
+      
+      const word = getWordFromBoard();
+      if (!word) {
+        alert('Please form a valid word on the board');
+        return;
       }
+      
+      await contract.submitWord(account, bytesBoard, word);
+      alert('Word submitted successfully!');
+      
+      // Refresh board state
+      await getBoardState();
     } catch (error) {
-      setMessage({ 
-        text: 'Error validating words. Please try again.', 
-        type: 'error' 
-      })
+      console.error('Error submitting word:', error);
+      alert('Failed to submit word. Please try again.');
     }
-    
-    setIsSubmitting(false)
-  }
+  };
 
   return (
     <DndProvider backend={HTML5Backend}>

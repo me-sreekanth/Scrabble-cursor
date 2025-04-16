@@ -15,12 +15,12 @@ contract Scrabble is ERC1155, ERC1155Supply {
     uint256 private nextTokenId;
     string private baseTokenURI;
     bytes32 public merkleRoot;
-    uint256 public constant BOARD_SIZE = 15;
+    uint256 public constant BOARD_SIZE = 20;
     
     mapping(address => uint256[]) public userTokens;
     mapping(uint256 => bytes1) public tokenLetters;
-    mapping(address => bytes1[BOARD_SIZE][BOARD_SIZE]) public userBoard;
-    mapping(address => bool[BOARD_SIZE][BOARD_SIZE]) public userBlockedCells;
+    mapping(address => bytes1[20][20]) public userBoard;
+    mapping(address => bool[20][20]) public userBlockedCells;
     
     modifier onlyNewUser(address user) {
         require(userTokens[user].length == 0, "User already has minted tokens");
@@ -94,12 +94,12 @@ contract Scrabble is ERC1155, ERC1155Supply {
         return tokenLetters[tokenId];
     }
 
-    function submitWord(address user, bytes[BOARD_SIZE][BOARD_SIZE] memory board, string memory word, bytes32[] memory proof) external {        
+    function submitWord(address user, bytes[20][20] memory board, string memory word, bytes32[] memory proof) external {        
         // Check if the word is valid
         bytes32 wordHash = keccak256(abi.encodePacked(word));
         require(verifyWord(wordHash, proof), "Invalid word");
 
-        bytes1[BOARD_SIZE][BOARD_SIZE] memory newBoard = convertToBytes1Board(board);
+        bytes1[20][20] memory newBoard = convertToBytes1Board(board);
         for (uint256 i = 0; i < BOARD_SIZE; i++) {
             for (uint256 j = 0; j < BOARD_SIZE; j++) {
                 if (board[i][j].length > 0) {
@@ -130,8 +130,8 @@ contract Scrabble is ERC1155, ERC1155Supply {
         mintAlphabetTokens(user);
     }
 
-    function convertToBytes1Board(bytes[BOARD_SIZE][BOARD_SIZE] memory stringBoard) private pure returns (bytes1[BOARD_SIZE][BOARD_SIZE] memory) {
-        bytes1[BOARD_SIZE][BOARD_SIZE] memory bytes1Board;
+    function convertToBytes1Board(bytes[20][20] memory stringBoard) private pure returns (bytes1[20][20] memory) {
+        bytes1[20][20] memory bytes1Board;
 
         for (uint256 i = 0; i < BOARD_SIZE; i++) {
             for (uint256 j = 0; j < BOARD_SIZE; j++) {

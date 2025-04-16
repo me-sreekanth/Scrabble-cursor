@@ -76,9 +76,9 @@
           "type": "address"
         },
         {
-          "internalType": "string[15][15]",
+          "internalType": "bytes[20][20]",
           "name": "board",
-          "type": "string[15][15]"
+          "type": "bytes[20][20]"
         },
         {
           "internalType": "string",
@@ -104,19 +104,68 @@
           "type": "address"
         }
       ],
-      "name": "userLetters",
+      "name": "getUserLetters",
       "outputs": [
         {
-          "internalType": "bytes1[5]",
+          "internalType": "uint256[]",
           "name": "",
-          "type": "bytes1[5]"
+          "type": "uint256[]"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "user",
+          "type": "address"
+        }
+      ],
+      "name": "getUserTokens",
+      "outputs": [
+        {
+          "internalType": "uint256[]",
+          "name": "",
+          "type": "uint256[]"
         }
       ],
       "stateMutability": "view",
       "type": "function"
     },
     {
-      "inputs": [],
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "tokenId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getTokenLetter",
+      "outputs": [
+        {
+          "internalType": "bytes1",
+          "name": "",
+          "type": "bytes1"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "leaf",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32[]",
+          "name": "proof",
+          "type": "bytes32[]"
+        }
+      ],
       "name": "verifyWord",
       "outputs": [
         {
@@ -125,7 +174,26 @@
           "type": "bool"
         }
       ],
-      "stateMutability": "pure",
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "user",
+          "type": "address"
+        }
+      ],
+      "name": "getUserBoard",
+      "outputs": [
+        {
+          "internalType": "bytes[20][20]",
+          "name": "",
+          "type": "bytes[20][20]"
+        }
+      ],
+      "stateMutability": "view",
       "type": "function"
     }
 ]

@@ -20,7 +20,7 @@ export const Board: React.FC<BoardProps> = ({
     const isLocked = lockedCells[row][col]
 
     const [{ isOver, canDrop }, drop] = useDrop({
-      accept: 'letter',
+      accept: 'LETTER',
       canDrop: () => !isLocked,
       drop: (item: { letter: string }) => {
         onLetterDrop(row, col, item.letter)
