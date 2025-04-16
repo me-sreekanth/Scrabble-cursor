@@ -6,9 +6,19 @@ import { LetterRack } from './components/LetterRack'
 import { generateLetters } from './utils/letterGenerator'
 import { findWords, isValidWord, isValidPlacement } from './utils/wordValidator'
 import './App.css'
-import { calculateTotalScore } from './utils/scoring'
-import { ethers, BrowserProvider, Contract } from 'ethers';
-import ScrabbleABI from './ScrabbleABI.json';
+import { calculateWordScore, calculateTotalScore } from './utils/scoring'
+import { ethers } from 'ethers'
+
+declare global {
+  interface Window {
+    ethereum?: {
+      isMetaMask?: boolean;
+      request: (args: { method: string; params?: any[] }) => Promise<any>;
+      on: (event: string, callback: (accounts: string[]) => void) => void;
+      removeListener: (event: string, callback: (accounts: string[]) => void) => void;
+    };
+  }
+}
 
 const BOARD_SIZE = 15
 
@@ -26,9 +36,68 @@ const App: React.FC = () => {
   const [score, setScore] = useState<number>(0)
   const [lastWordScore, setLastWordScore] = useState<number>(0)
   const [moveCount, setMoveCount] = useState<number>(0)
-  const [isConnected, setIsConnected] = useState<boolean>(false);
-  const [account, setAccount] = useState<string>('');
-  
+  const [isConnected, setIsConnected] = useState<boolean>(false)
+  const [account, setAccount] = useState<string>('')
+  const [contractAddress, setContractAddress] = useState<string>('0x5FbDB2315678afecb367f032d93F642f64180aa3') // Default localhost address
+
+  // Handle wallet connection
+  const connectWallet = async () => {
+    if (window.ethereum) {
+      try {
+        const provider = new ethers.BrowserProvider(window.ethereum)
+        await provider.send("eth_requestAccounts", [])
+        const signer = await provider.getSigner()
+        const address = await signer.getAddress()
+        
+        setAccount(address)
+        setIsConnected(true)
+        localStorage.setItem('connectedAccount', address)
+        setMessage({ text: 'Wallet connected successfully!', type: 'success' })
+      } catch (error) {
+        console.error("Failed to connect wallet:", error)
+        setMessage({ text: 'Failed to connect wallet.', type: 'error' })
+      }
+    } else {
+      setMessage({ text: 'Please install MetaMask to use this application.', type: 'error' })
+    }
+  }
+
+  // Handle wallet disconnection
+  const disconnectWallet = () => {
+    setIsConnected(false)
+    setAccount('')
+    localStorage.removeItem('connectedAccount')
+    setMessage({ text: 'Wallet disconnected.', type: 'info' })
+  }
+
+  // Check for existing connection on load
+  useEffect(() => {
+    const storedAccount = localStorage.getItem('connectedAccount')
+    if (storedAccount) {
+      setAccount(storedAccount)
+      setIsConnected(true)
+    }
+  }, [])
+
+  // Listen for account changes
+  useEffect(() => {
+    if (window.ethereum) {
+      const handleAccountsChanged = (accounts: string[]) => {
+        if (accounts.length === 0) {
+          disconnectWallet()
+        } else if (accounts[0] !== account) {
+          setAccount(accounts[0])
+          localStorage.setItem('connectedAccount', accounts[0])
+        }
+      }
+
+      window.ethereum.on('accountsChanged', handleAccountsChanged)
+      return () => {
+        window.ethereum?.removeListener('accountsChanged', handleAccountsChanged)
+      }
+    }
+  }, [account])
+
   // Debug effect for board state
   useEffect(() => {
     console.log('Board state updated:', board)
@@ -49,41 +118,13 @@ const App: React.FC = () => {
     }
   }, [board, lockedCells])
 
-  const connectWallet = async () => {
-    if (window.ethereum) {
-      try {
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        await provider.send("eth_requestAccounts", []);
-        const signer = await provider.getSigner();
-        const address = await signer.getAddress();
+  const handleGenerateNewLetters = () => {
+    console.log('Generating new letters')
+    const newLetters = generateLetters()
+    setLetters(prevLetters => [...prevLetters, ...newLetters])
+    setMessage({ text: 'New letters generated!', type: 'info' })
+  }
 
-        setAccount(address);
-        setIsConnected(true);
-        localStorage.setItem('connectedAccount', address);
-      } catch (error) {
-        console.error("Failed to connect wallet:", error);
-        setMessage({ text: 'Failed to connect wallet.', type: 'error' });
-      }
-    } else {
-      console.error("No Ethereum provider found");
-      setMessage({ text: 'No Ethereum provider found. Please install MetaMask or another wallet.', type: 'error' });
-    }
-  };
-
-  useEffect(() => {
-    const storedAccount = localStorage.getItem('connectedAccount');
-    if (storedAccount) {
-      setAccount(storedAccount);
-      setIsConnected(true);
-    }
-  }, []);
-
-
-
-  const disconnectWallet = () => {
-    setIsConnected(false);
-    setAccount('');
-  };
   const handleLetterDrop = (row: number, col: number, letter: string) => {
     if (isSubmitting || lockedCells[row][col]) {
       setMessage({ text: 'This cell is locked!', type: 'error' })
@@ -137,85 +178,156 @@ const App: React.FC = () => {
       return newBoard
     })
   }
-  const handleSubmitWord = () => {
-    setIsSubmitting(true);
-    const words = findWords(board, lockedCells);
-    console.log('Found words:', words);
 
+  const handleSubmitWord = async () => {
+    setIsSubmitting(true)
+    const words = findWords(board, lockedCells)
+    console.log('Found words:', words)
+    
     if (words.length === 0) {
-        setMessage({ text: 'No valid words found on the board', type: 'error' });
-        setIsSubmitting(false);
-        return;
+      setMessage({ text: 'No valid words found on the board', type: 'error' })
+      setIsSubmitting(false)
+      return
     }
 
-    // Basic validation for testing.
-    const isValid = words.length > 0; 
-    if (!isValid) {
-        setMessage({ text: 'Invalid word.', type: 'error' });
-    }
+    const wordsToValidate = words.map(word => word.split(' (')[0])
+    
+    try {
+      const validationResults = await Promise.all(
+        wordsToValidate.map(async (word) => ({
+          word,
+          isValid: await isValidWord(word)
+        }))
+      )
 
-    setMessage({ text: 'Word submitted successfully!', type: 'success' });
-    setIsSubmitting(false);
+      const invalidWords = validationResults
+        .filter((result) => !result.isValid)
+        .map((result) => result.word)
+
+      if (invalidWords.length > 0) {
+        setMessage({ 
+          text: `Invalid words found: ${invalidWords.join(', ')}`, 
+          type: 'error' 
+        })
+        // Clear the invalid words from the board and return letters to rack
+        setBoard(prevBoard => {
+          const newBoard = prevBoard.map(r => [...r])
+          // Find all cells that are not locked and contain letters
+          const lettersToReturn: string[] = []
+          for (let row = 0; row < BOARD_SIZE; row++) {
+            for (let col = 0; col < BOARD_SIZE; col++) {
+              if (newBoard[row][col] && !lockedCells[row][col]) {
+                lettersToReturn.push(newBoard[row][col])
+                newBoard[row][col] = ''
+              }
+            }
+          }
+          // Return the letters to the rack
+          setLetters(prevLetters => [...prevLetters, ...lettersToReturn])
+          return newBoard
+        })
+      } else {
+        const wordScore = calculateTotalScore(wordsToValidate)
+        setLastWordScore(wordScore)
+        setScore(prevScore => prevScore + wordScore)
+        setMessage({ 
+          text: `Words submitted successfully! +${wordScore} points`, 
+          type: 'success' 
+        })
+        // Lock the cells that contain the valid words
+        setLockedCells(prevLocked => {
+          const newLocked = prevLocked.map(r => [...r])
+          // Only lock cells that are part of the newly formed words
+          words.forEach(wordWithLocation => {
+            const [, location] = wordWithLocation.split(' (')
+            const [type, range] = location.split(', ')
+            const [typeValue, number] = type.split(' ')
+            const [, rangeValues] = range.split(' ')
+            const [start, end] = rangeValues.split('-').map(n => parseInt(n) - 1)
+
+            if (typeValue === 'Row') {
+              const row = parseInt(number) - 1
+              for (let col = start; col <= end; col++) {
+                if (board[row][col] && !newLocked[row][col]) {
+                  newLocked[row][col] = true
+                }
+              }
+            } else { // Column
+              const col = parseInt(number) - 1
+              for (let row = start; row <= end; row++) {
+                if (board[row][col] && !newLocked[row][col]) {
+                  newLocked[row][col] = true
+                }
+              }
+            }
+          })
+          return newLocked
+        })
+        // Generate new letters after successful word submission
+        setLetters(prevLetters => [...prevLetters, ...generateLetters()])
+        // Clear the current word display
+        setCurrentWord('')
+      }
+    } catch (error) {
+      setMessage({ 
+        text: 'Error validating words. Please try again.', 
+        type: 'error' 
+      })
+    }
+    
+    setIsSubmitting(false)
   }
-  const handleSubmitWord = () => {
-    setIsSubmitting(true);
-    setMessage({ text: 'Word submitted successfully!', type: 'success' });
-    setIsSubmitting(false);
-    setLockedCells(prevLockedCells =>
-      prevLockedCells.map(row => row.map(() => true))
 
-    );
-    setScore(prevScore => prevScore + 10);
-  };
   return (
-    <div className="app">
-
-      {!isConnected ? (
-        <button onClick={connectWallet} className="connect-button">
-          Connect Wallet
-        </button>
-      ) : (
-        <>
-
-          <div className="game-header">
-            <h1 className="game-title">Scrabble PWA</h1>
-            {isConnected && (
-              <div className="account-info">                
-                <span className="account-address">{account}</span><button className="log-out-button" onClick={disconnectWallet}>Disconnect</button>
+    <DndProvider backend={HTML5Backend}>
+      <div className="app">
+        {!isConnected ? (
+          <button onClick={connectWallet} className="connect-button">
+            Connect Wallet
+          </button>
+        ) : (
+          <>
+            <div className="game-header">
+              <h1 className="game-title">Scrabble PWA</h1>
+              <div className="account-info">
+                <span className="account-address">
+                  {`${account.slice(0, 6)}...${account.slice(-4)}`}
+                </span>
+                <button className="log-out-button" onClick={disconnectWallet}>
+                  Disconnect
+                </button>
               </div>
-            
-                           
-
-
-
-            )}
-             <div className="score-container">
-              <div className="score-label">Total Score</div>
-              <div className="total-score">{score}</div>
-              {lastWordScore > 0 && (
-                <div className="last-word-score">+{lastWordScore} points</div>
-              )}
+              <div className="score-container">
+                <div className="score-label">Total Score</div>
+                <div className="total-score">{score}</div>
+                {lastWordScore > 0 && (
+                  <div className="last-word-score">+{lastWordScore} points</div>
+                )}
+              </div>
             </div>
-          </div>
-          <DndProvider backend={HTML5Backend}>
+            <div className="contract-info">
+              <span className="contract-label">Contract Address:</span>
+              <span className="contract-address">{contractAddress}</span>
+            </div>
             <div className="game-container">
               <div className="game-board-container">
-                <Board
-                  board={board}
-                  onLetterDrop={handleLetterDrop}
+                <Board 
+                  board={board} 
+                  onLetterDrop={handleLetterDrop} 
                   onLetterRemove={handleLetterRemove}
-                  lockedCells={lockedCells}
+                  lockedCells={lockedCells} 
                 />
               </div>
+
               <div className="game-sidebar">
                 <div className="game-info">
                   <div className="moves">Move #{moveCount}</div>
-
-                  <div className="current-word">
-                    <span className="current-word-label">Current Word</span>{currentWord}
-
-                  </div>
-
+                  {currentWord && (
+                    <div className="current-word">
+                      <span className="current-word-label">Current Word</span>
+                      {currentWord}
+                    </div>
+                  )}
                   {message.text && (
                     <div className={`message ${message.type}`}>
                       {message.text}
@@ -225,26 +337,23 @@ const App: React.FC = () => {
 
                 <LetterRack
                   letters={letters}
-                  onGenerateNewLetters={() => {
-                    setLetters(generateLetters());
-                  }}
+                  onGenerateNewLetters={handleGenerateNewLetters}
                 />
-                <div className="controls">
-                  <button
-                    onClick={handleSubmitWord}
-                    className="submit-button"
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? "Submitting..." : "Submit Word"}
-                  </button>
-                </div>
+
+                <button 
+                  onClick={handleSubmitWord} 
+                  className="submit-button"
+                  disabled={isSubmitting || !currentWord}
+                >
+                  {isSubmitting ? 'Submitting...' : 'Submit Word'}
+                </button>
               </div>
             </div>
-          </DndProvider>
-        </>
-      )}
-    </div>
-  );
+          </>
+        )}
+      </div>
+    </DndProvider>
+  )
 }
 
 export default App 

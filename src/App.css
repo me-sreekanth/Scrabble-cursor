@@ -214,16 +214,31 @@
 .account-info {
   display: flex;
   align-items: center;
+  gap: 10px;
+  background-color: #f5f5f5;
+  padding: 8px 16px;
+  border-radius: 4px;
+  margin: 10px 0;
 }
 
 .account-address {
-  margin-right: 10px;
-  min-width: 120px;
-  color: #61dafb;
+  font-family: monospace;
+  color: #666;
 }
 
 .log-out-button {
-  font-size: 12px;
+  background-color: #f44336;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s;
+}
+
+.log-out-button:hover {
+  background-color: #d32f2f;
 }
 
 .avatar-icon {
@@ -231,4 +246,48 @@
   height: 30px;
   border-radius: 50%;
   margin-right: 10px;
+}
+
+/* Wallet Connection Styles */
+.connect-button {
+  background-color: #4CAF50;
+  color: white;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 4px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  margin: 20px auto;
+  display: block;
+}
+
+.connect-button:hover {
+  background-color: #45a049;
+}
+
+.contract-info {
+  background-color: white;
+  padding: 12px 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin: 0 auto 20px;
+  width: fit-content;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.contract-label {
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.contract-address {
+  font-family: monospace;
+  color: #3498db;
+  background-color: #f8f9fa;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.9em;
 }

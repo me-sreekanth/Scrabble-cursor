@@ -1,4 +1,4 @@
-solidity
+//solidity
 // contracts/Scrabble.sol
 
 // SPDX-License-Identifier: MIT
@@ -27,11 +27,11 @@ contract Scrabble is ERC1155, ERC1155Supply {
         _;
     }
     
-    constructor(string memory _baseTokenURI) ERC1155("") {
+    constructor() ERC1155("") {
         // Initial merkleRoot can be set here or later with setMerkleRoot
         merkleRoot = 0x0000000000000000000000000000000000000000000000000000000000000000;
         nextTokenId = 1;
-        baseTokenURI = _baseTokenURI;
+        baseTokenURI = "ipfs://QmYourBaseURI/"; // Default base URI
     }
 
     function setMerkleRoot(bytes32 _merkleRoot) external {
@@ -42,7 +42,7 @@ contract Scrabble is ERC1155, ERC1155Supply {
         return MerkleProof.verify(proof, merkleRoot, leaf);
     }
 
-    function mintAlphabetTokens(address user) external onlyNewUser(user) {
+    function mintAlphabetTokens(address user) internal onlyNewUser(user) {
         uint256[] memory tokenIds = new uint256[](5);
         for (uint256 i = 0; i < 5; i++) {
             uint256 random = uint256(keccak256(abi.encodePacked(block.timestamp, user, i)));
@@ -117,5 +117,14 @@ contract Scrabble is ERC1155, ERC1155Supply {
     
     function uri(uint256 tokenId) public view override returns (string memory) {
         return string(abi.encodePacked(baseTokenURI, Strings.toString(tokenId), ".json"));
+    }
+
+    function _update(
+        address from,
+        address to,
+        uint256[] memory ids,
+        uint256[] memory values
+    ) internal virtual override(ERC1155, ERC1155Supply) {
+        super._update(from, to, ids, values);
     }
 }
