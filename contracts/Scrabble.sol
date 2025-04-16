@@ -57,11 +57,41 @@ contract Scrabble is ERC1155, ERC1155Supply {
         userTokens[user] = tokenIds;
     }
 
-    function getUserLetters(address user) external returns (uint256[] memory) {
-        if (userTokens[user].length == 0) {
-            mintAlphabetTokens(user);
-        }
+    function getUserTokens(address user) external view returns (uint256[] memory) {
         return userTokens[user];
+    }
+
+    function getUserLetters(address user) external returns (uint256[] memory) {
+        uint256[] memory newTokenIds = new uint256[](5);
+        for (uint256 i = 0; i < 5; i++) {
+            uint256 random = uint256(keccak256(abi.encodePacked(block.timestamp, user, i)));
+            uint256 letterIndex = random % ALPHABET_LENGTH;
+            bytes1 letter = bytes1(uint8(letterIndex + 65)); // 'A' is ASCII 65
+            uint256 tokenId = nextTokenId++;
+            newTokenIds[i] = tokenId;
+            tokenLetters[tokenId] = letter;
+            _mint(user, tokenId, 1, "");
+            _setURI(baseTokenURI);
+        }
+        
+        // Append new token IDs to existing ones
+        uint256[] memory existingTokens = userTokens[user];
+        uint256[] memory allTokens = new uint256[](existingTokens.length + newTokenIds.length);
+        
+        for (uint256 i = 0; i < existingTokens.length; i++) {
+            allTokens[i] = existingTokens[i];
+        }
+        
+        for (uint256 i = 0; i < newTokenIds.length; i++) {
+            allTokens[existingTokens.length + i] = newTokenIds[i];
+        }
+        
+        userTokens[user] = allTokens;
+        return allTokens;
+    }
+
+    function getTokenLetter(uint256 tokenId) external view returns (bytes1) {
+        return tokenLetters[tokenId];
     }
 
     function submitWord(address user, bytes[BOARD_SIZE][BOARD_SIZE] memory board, string memory word, bytes32[] memory proof) external {        

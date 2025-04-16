@@ -38,7 +38,8 @@ const App: React.FC = () => {
   const [moveCount, setMoveCount] = useState<number>(0)
   const [isConnected, setIsConnected] = useState<boolean>(false)
   const [account, setAccount] = useState<string>('')
-  const [contractAddress, setContractAddress] = useState<string>('0x5FbDB2315678afecb367f032d93F642f64180aa3') // Default localhost address
+  const [contractAddress, setContractAddress] = useState<string>('0xa82fF9aFd8f496c3d6ac40E2a0F282E47488CFc9') // Updated to new deployed contract address
+  const [contract, setContract] = useState<ethers.Contract | null>(null)
 
   // Handle wallet connection
   const connectWallet = async () => {
@@ -53,6 +54,46 @@ const App: React.FC = () => {
         setIsConnected(true)
         localStorage.setItem('connectedAccount', address)
         setMessage({ text: 'Wallet connected successfully!', type: 'success' })
+
+        const contract = new ethers.Contract(contractAddress, [
+          // ERC1155 Events
+          "event TransferSingle(address indexed operator, address indexed from, address indexed to, uint256 id, uint256 value)",
+          "event TransferBatch(address indexed operator, address indexed from, address indexed to, uint256[] ids, uint256[] values)",
+          
+          // Contract Functions
+          "function getUserLetters(address) returns (uint256[])",
+          "function getUserTokens(address) view returns (uint256[])",
+          "function getTokenLetter(uint256) view returns (bytes1)",
+          "function submitWord(address,bytes[15][15],string,bytes32[])",
+          "function verifyWord(bytes32,bytes32[]) view returns (bool)"
+        ], signer)
+        setContract(contract)
+
+        // Load user's existing letters after connection
+        try {
+          setMessage({ text: 'Loading your letters...', type: 'info' })
+          
+          // Get the user's existing token IDs
+          const tokenIds = await contract.getUserTokens(address)
+          
+          if (tokenIds.length > 0) {
+            // Get the letters for existing token IDs
+            const letters = await Promise.all(
+              tokenIds.map(async (tokenId: any) => {
+                const letter = await contract.getTokenLetter(tokenId)
+                return String.fromCharCode(Number(letter))
+              })
+            )
+            
+            setLetters(letters)
+            setMessage({ text: 'Letters loaded successfully!', type: 'success' })
+          } else {
+            setMessage({ text: 'No letters found. Click "Generate New Letters" to start playing!', type: 'info' })
+          }
+        } catch (error) {
+          console.error('Error loading letters:', error)
+          setMessage({ text: 'Failed to load letters. Please try generating new letters.', type: 'error' })
+        }
       } catch (error) {
         console.error("Failed to connect wallet:", error)
         setMessage({ text: 'Failed to connect wallet.', type: 'error' })
@@ -68,14 +109,69 @@ const App: React.FC = () => {
     setAccount('')
     localStorage.removeItem('connectedAccount')
     setMessage({ text: 'Wallet disconnected.', type: 'info' })
+    setContract(null)
   }
 
   // Check for existing connection on load
   useEffect(() => {
     const storedAccount = localStorage.getItem('connectedAccount')
-    if (storedAccount) {
-      setAccount(storedAccount)
-      setIsConnected(true)
+    if (storedAccount && window.ethereum) {
+      const reconnectWallet = async () => {
+        try {
+          const provider = new ethers.BrowserProvider(window.ethereum as ethers.Eip1193Provider)
+          const accounts = await provider.send("eth_accounts", [])
+          if (accounts.length > 0 && accounts[0] === storedAccount) {
+            const signer = await provider.getSigner()
+            setAccount(storedAccount)
+            setIsConnected(true)
+            
+            const contract = new ethers.Contract(contractAddress, [
+              "event TransferSingle(address indexed operator, address indexed from, address indexed to, uint256 id, uint256 value)",
+              "event TransferBatch(address indexed operator, address indexed from, address indexed to, uint256[] ids, uint256[] values)",
+              "function getUserLetters(address) returns (uint256[])",
+              "function getUserTokens(address) view returns (uint256[])",
+              "function getTokenLetter(uint256) view returns (bytes1)",
+              "function submitWord(address,bytes[15][15],string,bytes32[])",
+              "function verifyWord(bytes32,bytes32[]) view returns (bool)"
+            ], signer)
+            setContract(contract)
+
+            // Load user's existing letters after reconnection
+            try {
+              setMessage({ text: 'Loading your letters...', type: 'info' })
+              const tokenIds = await contract.getUserTokens(storedAccount)
+              
+              if (tokenIds.length > 0) {
+                const letters = await Promise.all(
+                  tokenIds.map(async (tokenId: any) => {
+                    const letter = await contract.getTokenLetter(tokenId)
+                    return String.fromCharCode(Number(letter))
+                  })
+                )
+                
+                setLetters(letters)
+                setMessage({ text: 'Letters loaded successfully!', type: 'success' })
+              } else {
+                setMessage({ text: 'No letters found. Click "Generate New Letters" to start playing!', type: 'info' })
+              }
+            } catch (error) {
+              console.error('Error loading letters:', error)
+              setMessage({ text: 'Failed to load letters. Please try generating new letters.', type: 'error' })
+            }
+          } else {
+            // If accounts don't match or no accounts found, clear stored account
+            localStorage.removeItem('connectedAccount')
+            setAccount('')
+            setIsConnected(false)
+          }
+        } catch (error) {
+          console.error('Error reconnecting wallet:', error)
+          localStorage.removeItem('connectedAccount')
+          setAccount('')
+          setIsConnected(false)
+        }
+      }
+      reconnectWallet()
     }
   }, [])
 
@@ -118,11 +214,37 @@ const App: React.FC = () => {
     }
   }, [board, lockedCells])
 
-  const handleGenerateNewLetters = () => {
-    console.log('Generating new letters')
-    const newLetters = generateLetters()
-    setLetters(prevLetters => [...prevLetters, ...newLetters])
-    setMessage({ text: 'New letters generated!', type: 'info' })
+  const handleGenerateNewLetters = async () => {
+    if (!contract || !account) {
+      setMessage({ text: 'Please connect your wallet first', type: 'error' })
+      return
+    }
+
+    try {
+      setMessage({ text: 'Generating new letters...', type: 'info' })
+      
+      // Get new letters
+      const tx = await contract.getUserLetters(account)
+      await tx.wait()
+      
+      // Get all token IDs (including existing ones)
+      const tokenIds = await contract.getUserTokens(account)
+      
+      // Get the letters for each token ID
+      const newLetters = await Promise.all(
+        tokenIds.map(async (tokenId: any) => {
+          const letter = await contract.getTokenLetter(tokenId)
+          return String.fromCharCode(Number(letter))
+        })
+      )
+
+      // Update letters state with all letters
+      setLetters(newLetters)
+      setMessage({ text: 'New letters generated successfully!', type: 'success' })
+    } catch (error) {
+      console.error('Error generating letters:', error)
+      setMessage({ text: 'Failed to generate letters. Please try again.', type: 'error' })
+    }
   }
 
   const handleLetterDrop = (row: number, col: number, letter: string) => {
@@ -282,9 +404,13 @@ const App: React.FC = () => {
     <DndProvider backend={HTML5Backend}>
       <div className="app">
         {!isConnected ? (
-          <button onClick={connectWallet} className="connect-button">
-            Connect Wallet
-          </button>
+          <div className="connect-container">
+            <h1 className="game-title">Scrabble PWA</h1>
+            <p className="connect-message">Connect your wallet to start playing!</p>
+            <button onClick={connectWallet} className="connect-button">
+              Connect Wallet
+            </button>
+          </div>
         ) : (
           <>
             <div className="game-header">

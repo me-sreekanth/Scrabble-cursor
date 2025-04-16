@@ -9,11 +9,12 @@ interface LetterRackProps {
 
 interface DraggableLetterProps {
   letter: string
+  index: number
 }
 
-const DraggableLetter: React.FC<DraggableLetterProps> = ({ letter }) => {
+const DraggableLetter: React.FC<DraggableLetterProps> = ({ letter, index }) => {
   const [{ isDragging }, drag] = useDrag({
-    type: 'letter',
+    type: 'LETTER',
     item: { letter },
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
@@ -22,8 +23,9 @@ const DraggableLetter: React.FC<DraggableLetterProps> = ({ letter }) => {
 
   return (
     <div
+      key={`${letter}-${index}`}
       ref={drag}
-      className={`letter-tile ${isDragging ? 'dragging' : ''}`}
+      className={`letter ${isDragging ? 'dragging' : ''}`}
       style={{ opacity: isDragging ? 0.5 : 1 }}
     >
       {letter}
@@ -37,13 +39,14 @@ export const LetterRack: React.FC<LetterRackProps> = ({
 }) => {
   return (
     <div className="letter-rack">
-      <div className="letter-tiles">
+      <div className="letter-rack-title">Your Letters</div>
+      <div className="letter-container">
         {letters.map((letter, index) => (
-          <DraggableLetter key={`${letter}-${index}`} letter={letter} />
+          <DraggableLetter key={`${letter}-${index}`} letter={letter} index={index} />
         ))}
       </div>
-      <button className="generate-button" onClick={onGenerateNewLetters}>
-        Generate New Letters
+      <button onClick={onGenerateNewLetters} className="generate-letters-button">
+        Claim Letters
       </button>
     </div>
   )
