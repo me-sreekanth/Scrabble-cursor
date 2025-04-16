@@ -23,7 +23,7 @@ declare global {
 const BOARD_SIZE = 15
 
 const App: React.FC = () => {
-  const [letters, setLetters] = useState<string[]>(generateLetters())
+  const [letters, setLetters] = useState<string[]>([])
   const [board, setBoard] = useState<string[][]>(
     Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(''))
   )
@@ -88,11 +88,11 @@ const App: React.FC = () => {
             setLetters(letters)
             setMessage({ text: 'Letters loaded successfully!', type: 'success' })
           } else {
-            setMessage({ text: 'No letters found. Click "Generate New Letters" to start playing!', type: 'info' })
+            setMessage({ text: 'No letters found. Click "Claim Letters" to start playing!', type: 'info' })
           }
         } catch (error) {
           console.error('Error loading letters:', error)
-          setMessage({ text: 'Failed to load letters. Please try generating new letters.', type: 'error' })
+          setMessage({ text: 'No letters found. Click "Claim Letters" to start playing!', type: 'info' })
         }
       } catch (error) {
         console.error("Failed to connect wallet:", error)
@@ -152,11 +152,11 @@ const App: React.FC = () => {
                 setLetters(letters)
                 setMessage({ text: 'Letters loaded successfully!', type: 'success' })
               } else {
-                setMessage({ text: 'No letters found. Click "Generate New Letters" to start playing!', type: 'info' })
+                setMessage({ text: 'No letters found. Click "Claim Letters" to start playing!', type: 'info' })
               }
             } catch (error) {
               console.error('Error loading letters:', error)
-              setMessage({ text: 'Failed to load letters. Please try generating new letters.', type: 'error' })
+              setMessage({ text: 'No letters found. Click "Claim Letters" to start playing!', type: 'info' })
             }
           } else {
             // If accounts don't match or no accounts found, clear stored account
@@ -243,7 +243,7 @@ const App: React.FC = () => {
       setMessage({ text: 'New letters generated successfully!', type: 'success' })
     } catch (error) {
       console.error('Error generating letters:', error)
-      setMessage({ text: 'Failed to generate letters. Please try again.', type: 'error' })
+      setMessage({ text: 'No letters found. Click "Claim Letters" to start playing!', type: 'info' })
     }
   }
 
